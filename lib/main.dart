@@ -25,7 +25,319 @@ class TapinGolfApp extends StatelessWidget {
         primarySwatch: Colors.green,
         useMaterial3: true,
       ),
-      home: const MainNavigationScreen(),
+      home: const AuthenticationWrapper(),
+    );
+  }
+}
+
+// Authentication Wrapper - decides whether to show login or main app
+class AuthenticationWrapper extends StatelessWidget {
+  const AuthenticationWrapper({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<User?>(
+      stream: FirebaseAuth.instance.authStateChanges(),
+      builder: (context, snapshot) {
+        // Check if user is logged in
+        if (snapshot.hasData && snapshot.data != null) {
+          return const MainNavigationScreen();
+        } else {
+          return const LoginScreen();
+        }
+      },
+    );
+  }
+}
+
+// Full-screen Login Page with Blue Clouded Gradient
+class LoginScreen extends StatefulWidget {
+  const LoginScreen({super.key});
+
+  @override
+  State<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen> {
+  final AuthService _authService = AuthService();
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+  final TextEditingController _firstNameController = TextEditingController();
+  final TextEditingController _lastNameController = TextEditingController();
+  bool _isLogin = true;
+  bool _isLoading = false;
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    _firstNameController.dispose();
+    _lastNameController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _handleAuthentication() async {
+    if (_emailController.text.trim().isEmpty || _passwordController.text.trim().isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please enter email and password')),
+        );
+      }
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      if (_isLogin) {
+        final result = await _authService.signInWithEmailAndPassword(
+          _emailController.text.trim(),
+          _passwordController.text.trim(),
+        );
+        if (result == null && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Invalid email or password')),
+          );
+        }
+      } else {
+        if (_firstNameController.text.trim().isEmpty || 
+            _lastNameController.text.trim().isEmpty) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Please enter both first and last name')),
+            );
+          }
+          setState(() {
+            _isLoading = false;
+          });
+          return;
+        }
+        final result = await _authService.registerWithEmailAndPassword(
+          _emailController.text.trim(),
+          _passwordController.text.trim(),
+          _firstNameController.text.trim(),
+          _lastNameController.text.trim(),
+        );
+        if (result == null && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Failed to create account. Please try again.')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('An error occurred: $e')),
+        );
+      }
+    }
+
+    setState(() {
+      _isLoading = false;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: RadialGradient(
+            center: Alignment.topRight,
+            radius: 1.2,
+            colors: [
+              Color(0xFFCCE8F0), // Light blue-teal
+              Color(0xFF66C9DD), // Medium blue-teal
+              Color(0xFF33AEC6), // Medium-dark blue-teal
+              Color(0xFF0093AF), // Blue-teal #0093AF
+            ],
+            stops: [0.0, 0.2, 0.4, 1.0],
+          ),
+        ),
+        child: SafeArea(
+          child: SingleChildScrollView(
+            child: Container(
+              height: MediaQuery.of(context).size.height - 
+                     MediaQuery.of(context).padding.top - 
+                     MediaQuery.of(context).padding.bottom,
+              padding: const EdgeInsets.symmetric(horizontal: 40.0, vertical: 24.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  // Welcome Text
+                  Text(
+                    _isLogin ? 'Tap in Golf' : 'Join Tapin Golf',
+                    style: const TextStyle(
+                      fontSize: 32,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    _isLogin ? 'Sign in to continue' : 'Create your account',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      color: Colors.white70,
+                    ),
+                  ),
+                  const SizedBox(height: 40),
+
+                  // Login Form
+                  Column(
+                    children: [
+                      if (!_isLogin) ...[
+                        TextField(
+                          controller: _firstNameController,
+                          decoration: InputDecoration(
+                            labelText: 'First Name',
+                            labelStyle: const TextStyle(color: Colors.white70),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8.0),
+                              borderSide: BorderSide.none,
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8.0),
+                              borderSide: BorderSide.none,
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8.0),
+                              borderSide: BorderSide.none,
+                            ),
+                            filled: true,
+                            fillColor: Colors.white.withValues(alpha: 0.1),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          ),
+                          style: const TextStyle(color: Colors.white),
+                          textCapitalization: TextCapitalization.words,
+                        ),
+                        const SizedBox(height: 16),
+                        TextField(
+                          controller: _lastNameController,
+                          decoration: InputDecoration(
+                            labelText: 'Last Name',
+                            labelStyle: const TextStyle(color: Colors.white70),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8.0),
+                              borderSide: BorderSide.none,
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8.0),
+                              borderSide: BorderSide.none,
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8.0),
+                              borderSide: BorderSide.none,
+                            ),
+                            filled: true,
+                            fillColor: Colors.white.withValues(alpha: 0.1),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          ),
+                          style: const TextStyle(color: Colors.white),
+                          textCapitalization: TextCapitalization.words,
+                        ),
+                        const SizedBox(height: 16),
+                      ],
+                      TextField(
+                        controller: _emailController,
+                        decoration: InputDecoration(
+                          labelText: 'Email',
+                          labelStyle: const TextStyle(color: Colors.white70),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8.0),
+                            borderSide: BorderSide.none,
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8.0),
+                            borderSide: BorderSide.none,
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8.0),
+                            borderSide: BorderSide.none,
+                          ),
+                          filled: true,
+                          fillColor: Colors.white.withValues(alpha: 0.1),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        ),
+                        style: const TextStyle(color: Colors.white),
+                        keyboardType: TextInputType.emailAddress,
+                      ),
+                      const SizedBox(height: 16),
+                      TextField(
+                        controller: _passwordController,
+                        decoration: InputDecoration(
+                          labelText: 'Password',
+                          labelStyle: const TextStyle(color: Colors.white70),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8.0),
+                            borderSide: BorderSide.none,
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8.0),
+                            borderSide: BorderSide.none,
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8.0),
+                            borderSide: BorderSide.none,
+                          ),
+                          filled: true,
+                          fillColor: Colors.white.withValues(alpha: 0.1),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        ),
+                        style: const TextStyle(color: Colors.white),
+                        obscureText: true,
+                      ),
+                      const SizedBox(height: 24),
+                      
+                      // Sign In/Create Account Button
+                      SizedBox(
+                        width: double.infinity,
+                        height: 50,
+                        child: ElevatedButton(
+                          onPressed: _isLoading ? null : _handleAuthentication,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            foregroundColor: const Color(0xFF1E3A8A),
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          child: _isLoading
+                              ? const CircularProgressIndicator(color: Color(0xFF1E3A8A))
+                              : Text(
+                                  _isLogin ? 'Sign In' : 'Create Account',
+                                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      
+                      // Toggle between login and register
+                      TextButton(
+                        onPressed: () {
+                          setState(() {
+                            _isLogin = !_isLogin;
+                          });
+                        },
+                        child: Text(
+                          _isLogin 
+                              ? 'Don\'t have an account? Create one'
+                              : 'Already have an account? Sign in',
+                          style: const TextStyle(color: Colors.white),
+                        ),
+                      ),
+                      const SizedBox(height: 40), // Bottom spacing
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -39,8 +351,6 @@ class MainNavigationScreen extends StatefulWidget {
 
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
   int _selectedIndex = 0;
-  final AuthService _authService = AuthService();
-  bool _hasCheckedAuth = false;
 
   static const List<Widget> _pages = <Widget>[
     HomeScreen(),
@@ -48,142 +358,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     BookScreen(),
     YouScreen(),
   ];
-
-  @override
-  void initState() {
-    super.initState();
-    _checkAuthenticationState();
-  }
-
-  Future<void> _checkAuthenticationState() async {
-    // Check if user is already signed in
-    final currentUser = _authService.currentUser;
-    
-    if (currentUser == null && !_hasCheckedAuth) {
-      // User is not signed in, show login dialog
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _showLoginDialog();
-      });
-    }
-    
-    setState(() {
-      _hasCheckedAuth = true;
-    });
-  }
-
-  Future<void> _showLoginDialog() async {
-    final TextEditingController emailController = TextEditingController();
-    final TextEditingController passwordController = TextEditingController();
-    final TextEditingController firstNameController = TextEditingController();
-    final TextEditingController lastNameController = TextEditingController();
-    bool isLogin = true;
-
-    return showDialog(
-      context: context,
-      barrierDismissible: false, // Prevent dismissing without signing in
-      builder: (BuildContext context) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return AlertDialog(
-              title: Text(isLogin ? 'Welcome to Tapin Golf' : 'Create Account'),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (!isLogin) ...[
-                      TextField(
-                        controller: firstNameController,
-                        decoration: const InputDecoration(
-                          labelText: 'First Name',
-                        ),
-                        textCapitalization: TextCapitalization.words,
-                      ),
-                      const SizedBox(height: 8),
-                      TextField(
-                        controller: lastNameController,
-                        decoration: const InputDecoration(
-                          labelText: 'Last Name',
-                        ),
-                        textCapitalization: TextCapitalization.words,
-                      ),
-                      const SizedBox(height: 8),
-                    ],
-                    TextField(
-                      controller: emailController,
-                      decoration: const InputDecoration(
-                        labelText: 'Email',
-                      ),
-                      keyboardType: TextInputType.emailAddress,
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: passwordController,
-                      decoration: const InputDecoration(
-                        labelText: 'Password',
-                      ),
-                      obscureText: true,
-                    ),
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () {
-                    setState(() {
-                      isLogin = !isLogin;
-                    });
-                  },
-                  child: Text(isLogin ? 'Create Account' : 'Sign In Instead'),
-                ),
-                ElevatedButton(
-                  onPressed: () async {
-                    if (isLogin) {
-                      final result = await _authService.signInWithEmailAndPassword(
-                        emailController.text.trim(),
-                        passwordController.text.trim(),
-                      );
-                      if (result != null) {
-                        Navigator.of(context).pop();
-                      } else {
-                        // Show error message
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Invalid email or password')),
-                        );
-                      }
-                    } else {
-                      if (firstNameController.text.trim().isEmpty || 
-                          lastNameController.text.trim().isEmpty) {
-                        // Show error - names are required
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Please enter both first and last name')),
-                        );
-                        return;
-                      }
-                      final result = await _authService.registerWithEmailAndPassword(
-                        emailController.text.trim(),
-                        passwordController.text.trim(),
-                        firstNameController.text.trim(),
-                        lastNameController.text.trim(),
-                      );
-                      if (result != null) {
-                        Navigator.of(context).pop();
-                      } else {
-                        // Show error message
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Failed to create account. Please try again.')),
-                        );
-                      }
-                    }
-                  },
-                  child: Text(isLogin ? 'Sign In' : 'Create Account'),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
 
   void _onItemTapped(int index) {
     setState(() {
@@ -216,7 +390,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
           ),
         ],
         currentIndex: _selectedIndex,
-        selectedItemColor: Colors.green,
+        selectedItemColor: const Color(0xFF0093AF),
         onTap: _onItemTapped,
       ),
     );
@@ -230,15 +404,31 @@ class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Home'),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-      ),
-      body: const Center(
-        child: Text(
-          'Home Screen',
-          style: TextStyle(fontSize: 24),
-        ),
+      backgroundColor: const Color(0xB2EFEEEE),
+      body: Column(
+        children: [
+          // Course image taking up 60% of screen height
+          Container(
+            height: MediaQuery.of(context).size.height * 0.6,
+            width: double.infinity,
+            child: Image.asset(
+              'assets/courses/random/random-course-swe.webp',
+              fit: BoxFit.cover,
+            ),
+          ),
+          // Remaining content area
+          Expanded(
+            child: Container(
+              padding: const EdgeInsets.all(16.0),
+              child: const Center(
+                child: Text(
+                  'Home Screen',
+                  style: TextStyle(fontSize: 24),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -251,6 +441,7 @@ class PlayScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xB2EFEEEE),
       appBar: AppBar(
         title: const Text('Play'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
@@ -272,6 +463,7 @@ class BookScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xB2EFEEEE),
       appBar: AppBar(
         title: const Text('Book'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
@@ -324,6 +516,7 @@ class _YouScreenState extends State<YouScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xB2EFEEEE),
       appBar: AppBar(
         title: const Text('You'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
@@ -343,14 +536,6 @@ class _YouScreenState extends State<YouScreen> {
               },
               icon: const Icon(Icons.settings),
               tooltip: 'Settings',
-            ),
-            IconButton(
-              onPressed: () async {
-                await _authService.signOut();
-                _loadUserData();
-              },
-              icon: const Icon(Icons.logout),
-              tooltip: 'Sign Out',
             ),
           ],
         ],
@@ -409,40 +594,7 @@ class _YouScreenState extends State<YouScreen> {
                           ),
                           const SizedBox(height: 20),
                           
-                          // Profile Info Cards
-                          Card(
-                            child: ListTile(
-                              leading: const Icon(Icons.person),
-                              title: const Text('Name'),
-                              subtitle: Text('${_userProfile!.firstName} ${_userProfile!.lastName}'),
-                            ),
-                          ),
-                          
-                          Card(
-                            child: ListTile(
-                              leading: const Icon(Icons.email),
-                              title: const Text('Email'),
-                              subtitle: Text(_userProfile!.email),
-                            ),
-                          ),
-                          
-                          Card(
-                            child: ListTile(
-                              leading: const Icon(Icons.sports_golf),
-                              title: const Text('Handicap'),
-                              subtitle: Text(_userProfile!.handicap.toString()),
-                            ),
-                          ),
-                          
-                          Card(
-                            child: ListTile(
-                              leading: const Icon(Icons.location_on),
-                              title: const Text('Home Club'),
-                              subtitle: Text(_userProfile!.homeClub.isEmpty 
-                                  ? 'Not set' 
-                                  : _userProfile!.homeClub),
-                            ),
-                          ),
+                          // Additional profile actions can be added here in the future
                         ],
                       ),
                     ),
@@ -600,6 +752,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xB2EFEEEE),
       appBar: AppBar(
         title: const Text('Settings'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
