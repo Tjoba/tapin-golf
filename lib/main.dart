@@ -321,86 +321,6 @@ class _YouScreenState extends State<YouScreen> {
     });
   }
 
-  Future<void> _showEditProfileDialog() async {
-    if (_userProfile == null) return;
-
-    final TextEditingController firstNameController = TextEditingController(text: _userProfile!.firstName);
-    final TextEditingController lastNameController = TextEditingController(text: _userProfile!.lastName);
-    final TextEditingController handicapController = TextEditingController(text: _userProfile!.handicap.toString());
-    final TextEditingController homeClubController = TextEditingController(text: _userProfile!.homeClub);
-
-    return showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Edit Profile'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: firstNameController,
-                  decoration: const InputDecoration(
-                    labelText: 'First Name',
-                  ),
-                  textCapitalization: TextCapitalization.words,
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: lastNameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Last Name',
-                  ),
-                  textCapitalization: TextCapitalization.words,
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: handicapController,
-                  decoration: const InputDecoration(
-                    labelText: 'Handicap',
-                  ),
-                  keyboardType: TextInputType.number,
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: homeClubController,
-                  decoration: const InputDecoration(
-                    labelText: 'Home Club',
-                  ),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                final updatedProfile = _userProfile!.copyWith(
-                  firstName: firstNameController.text.trim(),
-                  lastName: lastNameController.text.trim(),
-                  handicap: int.tryParse(handicapController.text.trim()) ?? 0,
-                  homeClub: homeClubController.text.trim(),
-                );
-                
-                try {
-                  await _firestoreService.updateUserProfile(updatedProfile);
-                  Navigator.of(context).pop();
-                  _loadUserData();
-                } catch (e) {
-                  print('Error updating profile: $e');
-                }
-              },
-              child: const Text('Save'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -408,14 +328,31 @@ class _YouScreenState extends State<YouScreen> {
         title: const Text('You'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         actions: [
-          if (_currentUser != null)
+          if (_currentUser != null) ...[
+            IconButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => SettingsScreen(
+                      userProfile: _userProfile,
+                      onProfileUpdated: _loadUserData,
+                    ),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.settings),
+              tooltip: 'Settings',
+            ),
             IconButton(
               onPressed: () async {
                 await _authService.signOut();
                 _loadUserData();
               },
               icon: const Icon(Icons.logout),
+              tooltip: 'Sign Out',
             ),
+          ],
         ],
       ),
       body: _isLoading
@@ -478,10 +415,6 @@ class _YouScreenState extends State<YouScreen> {
                               leading: const Icon(Icons.person),
                               title: const Text('Name'),
                               subtitle: Text('${_userProfile!.firstName} ${_userProfile!.lastName}'),
-                              trailing: IconButton(
-                                onPressed: _showEditProfileDialog,
-                                icon: const Icon(Icons.edit),
-                              ),
                             ),
                           ),
                           
@@ -498,10 +431,6 @@ class _YouScreenState extends State<YouScreen> {
                               leading: const Icon(Icons.sports_golf),
                               title: const Text('Handicap'),
                               subtitle: Text(_userProfile!.handicap.toString()),
-                              trailing: IconButton(
-                                onPressed: _showEditProfileDialog,
-                                icon: const Icon(Icons.edit),
-                              ),
                             ),
                           ),
                           
@@ -512,15 +441,335 @@ class _YouScreenState extends State<YouScreen> {
                               subtitle: Text(_userProfile!.homeClub.isEmpty 
                                   ? 'Not set' 
                                   : _userProfile!.homeClub),
-                              trailing: IconButton(
-                                onPressed: _showEditProfileDialog,
-                                icon: const Icon(Icons.edit),
-                              ),
                             ),
                           ),
                         ],
                       ),
                     ),
+    );
+  }
+}
+
+// Settings Screen
+class SettingsScreen extends StatefulWidget {
+  final UserProfile? userProfile;
+  final VoidCallback onProfileUpdated;
+
+  const SettingsScreen({
+    super.key,
+    this.userProfile,
+    required this.onProfileUpdated,
+  });
+
+  @override
+  State<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends State<SettingsScreen> {
+  final AuthService _authService = AuthService();
+  final FirestoreService _firestoreService = FirestoreService();
+  
+  late TextEditingController _firstNameController;
+  late TextEditingController _lastNameController;
+  late TextEditingController _emailController;
+  late TextEditingController _handicapController;
+  late TextEditingController _homeClubController;
+  
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeControllers();
+  }
+
+  void _initializeControllers() {
+    _firstNameController = TextEditingController(
+      text: widget.userProfile?.firstName ?? '',
+    );
+    _lastNameController = TextEditingController(
+      text: widget.userProfile?.lastName ?? '',
+    );
+    _emailController = TextEditingController(
+      text: widget.userProfile?.email ?? '',
+    );
+    _handicapController = TextEditingController(
+      text: widget.userProfile?.handicap.toString() ?? '0',
+    );
+    _homeClubController = TextEditingController(
+      text: widget.userProfile?.homeClub ?? '',
+    );
+  }
+
+  @override
+  void dispose() {
+    _firstNameController.dispose();
+    _lastNameController.dispose();
+    _emailController.dispose();
+    _handicapController.dispose();
+    _homeClubController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _saveChanges() async {
+    if (widget.userProfile == null) return;
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final updatedProfile = widget.userProfile!.copyWith(
+        firstName: _firstNameController.text.trim(),
+        lastName: _lastNameController.text.trim(),
+        handicap: int.tryParse(_handicapController.text.trim()) ?? 0,
+        homeClub: _homeClubController.text.trim(),
+      );
+
+      await _firestoreService.updateUserProfile(updatedProfile);
+      
+      // Show success message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Profile updated successfully!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        
+        // Callback to refresh parent screen
+        widget.onProfileUpdated();
+        
+        // Go back to You screen
+        Navigator.of(context).pop();
+      }
+    } catch (e) {
+      print('Error updating profile: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to update profile. Please try again.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _confirmLogout() async {
+    final bool? shouldLogout = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Confirm Logout'),
+          content: const Text('Are you sure you want to sign out?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Sign Out'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldLogout == true) {
+      await _authService.signOut();
+      if (mounted) {
+        // Go back to main screen and trigger refresh
+        Navigator.of(context).pop();
+        widget.onProfileUpdated();
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Settings'),
+        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+        actions: [
+          if (!_isLoading)
+            IconButton(
+              onPressed: _saveChanges,
+              icon: const Icon(Icons.save),
+              tooltip: 'Save Changes',
+            ),
+        ],
+      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Profile Section
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.person,
+                                color: Colors.green.shade600,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Profile Information',
+                                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          TextField(
+                            controller: _firstNameController,
+                            decoration: const InputDecoration(
+                              labelText: 'First Name',
+                              border: OutlineInputBorder(),
+                              prefixIcon: Icon(Icons.person_outline),
+                            ),
+                            textCapitalization: TextCapitalization.words,
+                          ),
+                          const SizedBox(height: 16),
+                          TextField(
+                            controller: _lastNameController,
+                            decoration: const InputDecoration(
+                              labelText: 'Last Name',
+                              border: OutlineInputBorder(),
+                              prefixIcon: Icon(Icons.person_outline),
+                            ),
+                            textCapitalization: TextCapitalization.words,
+                          ),
+                          const SizedBox(height: 16),
+                          TextField(
+                            controller: _emailController,
+                            decoration: const InputDecoration(
+                              labelText: 'Email',
+                              border: OutlineInputBorder(),
+                              prefixIcon: Icon(Icons.email_outlined),
+                            ),
+                            enabled: false, // Email cannot be changed
+                            style: TextStyle(color: Colors.grey.shade600),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // Golf Information Section
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.sports_golf,
+                                color: Colors.green.shade600,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Golf Information',
+                                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          TextField(
+                            controller: _handicapController,
+                            decoration: const InputDecoration(
+                              labelText: 'Handicap',
+                              border: OutlineInputBorder(),
+                              prefixIcon: Icon(Icons.sports_golf),
+                              helperText: 'Enter your current golf handicap',
+                            ),
+                            keyboardType: TextInputType.number,
+                          ),
+                          const SizedBox(height: 16),
+                          TextField(
+                            controller: _homeClubController,
+                            decoration: const InputDecoration(
+                              labelText: 'Home Club',
+                              border: OutlineInputBorder(),
+                              prefixIcon: Icon(Icons.location_on_outlined),
+                              helperText: 'Your primary golf club or course',
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  // Action Buttons
+                  Column(
+                    children: [
+                      // Save Button
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: _isLoading ? null : _saveChanges,
+                          icon: const Icon(Icons.save),
+                          label: const Text('Save Changes'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 16),
+
+                      // Logout Button
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: _confirmLogout,
+                          icon: const Icon(Icons.logout),
+                          label: const Text('Sign Out'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.red,
+                            side: const BorderSide(color: Colors.red),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 24),
+                ],
+              ),
+            ),
     );
   }
 }
