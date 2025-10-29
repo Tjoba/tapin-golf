@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "222192939392",
+    "project_id": "tapin-a79e6",
+    "storage_bucket": "tapin-a79e6.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:222192939392:android:3317c2a5fabe3d6a2c1165",
+        "android_client_info": {
+          "package_name": "com.example.tapin_golf"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCFY-D-pnrl1LlE9F7ETe9-C7iNexRNops"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
