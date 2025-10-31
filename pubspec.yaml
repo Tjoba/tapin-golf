@@ -19,6 +19,8 @@ dependencies:
   # Image handling packages
   image_picker: ^1.0.7
   path: ^1.8.3
+  # Location services
+  geolocator: ^10.1.0
 
 dev_dependencies:
   flutter_test:

@@ -8,6 +8,11 @@ import 'firebase_options.dart';
 import 'models/user_profile.dart';
 import 'services/auth_service.dart';
 import 'services/firestore_service.dart';
+import 'screens/golf_courses_screen.dart';
+import 'services/location_service.dart';
+import 'services/golf_course_service.dart';
+import 'models/golf_course.dart';
+import 'package:geolocator/geolocator.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -552,8 +557,98 @@ class _HomeScreenState extends State<HomeScreen> {
 }
 
 // Play Screen
-class PlayScreen extends StatelessWidget {
+class PlayScreen extends StatefulWidget {
   const PlayScreen({super.key});
+
+  @override
+  State<PlayScreen> createState() => _PlayScreenState();
+}
+
+class _PlayScreenState extends State<PlayScreen> {
+  final LocationService _locationService = LocationService.instance;
+  final GolfCourseService _courseService = GolfCourseService.instance;
+  
+  List<GolfCourse> _nearbyCourses = [];
+  bool _isLoadingCourses = true;
+  bool _locationError = false;
+  Position? _userLocation;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadNearbyCourses();
+  }
+
+  Future<void> _loadNearbyCourses() async {
+    if (!mounted) return;
+    
+    setState(() {
+      _isLoadingCourses = true;
+      _locationError = false;
+    });
+
+    try {
+      // Try to get user's location first
+      Position? location = await _locationService.getCurrentLocation();
+      
+      // If location is not available or we're in a simulator, use Stockholm mock location
+      if (location == null || 
+          (location.latitude.toStringAsFixed(4) == '37.7858' && location.longitude.toStringAsFixed(4) == '-122.4064')) {
+        location = _locationService.getMockLocation();
+        setState(() {
+          _locationError = true; // Show that we're using mock location
+        });
+      } else {
+        setState(() {
+          _locationError = false;
+        });
+      }
+      
+      if (mounted) {
+        setState(() {
+          _userLocation = location;
+        });
+
+        // Get nearby courses within 6km
+        final courses = await _courseService.getCoursesNearby(
+          location.latitude, 
+          location.longitude, 
+          6.0, // 6km radius
+        );
+
+        // Sort courses by distance (closest first)
+        courses.sort((a, b) {
+          final distanceA = _locationService.calculateDistance(
+            location!.latitude,
+            location.longitude,
+            a.lat,
+            a.lon,
+          );
+          final distanceB = _locationService.calculateDistance(
+            location.latitude,
+            location.longitude,
+            b.lat,
+            b.lon,
+          );
+          return distanceA.compareTo(distanceB);
+        });
+
+        if (mounted) {
+          setState(() {
+            _nearbyCourses = courses.take(10).toList(); // Limit to 10 closest courses
+            _isLoadingCourses = false;
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoadingCourses = false;
+          _locationError = true;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -562,11 +657,407 @@ class PlayScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Play'),
         backgroundColor: Colors.white,
+        actions: [
+          IconButton(
+            icon: const Icon(
+              Icons.search,
+              color: Color(0xFF1ca9c9),
+              size: 28,
+            ),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const GolfCoursesScreen(),
+                ),
+              );
+            },
+            tooltip: 'Search Golf Courses',
+          ),
+        ],
       ),
-      body: const Center(
-        child: Text(
-          'Play Screen',
-          style: TextStyle(fontSize: 24),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Play Golf',
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Track your game and discover new courses',
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey[600],
+              ),
+            ),
+            const SizedBox(height: 24),
+            
+            // Nearby Courses Section
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Nearby Courses',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                if (_locationError)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.orange[100],
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      'Demo Location',
+                      style: TextStyle(
+                        color: Colors.orange[700],
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              _locationError 
+                  ? 'Showing courses near Stockholm (demo)'
+                  : 'Within 6km of your location',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey[600],
+              ),
+            ),
+            const SizedBox(height: 12),
+            
+            // Horizontal Course List
+            SizedBox(
+              height: 120,
+              child: _isLoadingCourses
+                  ? const Center(
+                      child: CircularProgressIndicator(
+                        color: Color(0xFF1ca9c9),
+                      ),
+                    )
+                  : _nearbyCourses.isEmpty
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.location_off,
+                                size: 48,
+                                color: Colors.grey[400],
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'No courses found nearby',
+                                style: TextStyle(
+                                  color: Colors.grey[600],
+                                  fontSize: 16,
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      : ListView.builder(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: _nearbyCourses.length,
+                          itemBuilder: (context, index) {
+                            final course = _nearbyCourses[index];
+                            final distance = _userLocation != null
+                                ? _locationService.calculateDistance(
+                                    _userLocation!.latitude,
+                                    _userLocation!.longitude,
+                                    course.lat,
+                                    course.lon,
+                                  )
+                                : 0.0;
+                            
+                            return _NearbyGolfCourseCard(
+                              course: course,
+                              distance: distance,
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => const GolfCoursesScreen(),
+                                  ),
+                                );
+                              },
+                            );
+                          },
+                        ),
+            ),
+            
+            const SizedBox(height: 16),
+            
+            // View All Button
+            if (_nearbyCourses.isNotEmpty)
+              Center(
+                child: TextButton.icon(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const GolfCoursesScreen(),
+                      ),
+                    );
+                  },
+                  icon: const Icon(
+                    Icons.list,
+                    color: Color(0xFF1ca9c9),
+                  ),
+                  label: const Text(
+                    'View All Courses',
+                    style: TextStyle(
+                      color: Color(0xFF1ca9c9),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            
+            const SizedBox(height: 24),
+            
+            // Add Player Section
+            const Text(
+              'Add Player',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Invite friends to join your round',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey[600],
+              ),
+            ),
+            const SizedBox(height: 12),
+            
+            // Add Player Card
+            Card(
+              elevation: 0,
+              color: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: InkWell(
+                onTap: () {
+                  // TODO: Implement add player functionality
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Add player feature coming soon!')),
+                  );
+                },
+                borderRadius: BorderRadius.circular(12),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF1ca9c9).withOpacity(0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.person_add,
+                          color: Color(0xFF1ca9c9),
+                          size: 24,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Invite Players',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Add friends to play together and track scores',
+                              style: TextStyle(
+                                color: Colors.grey[600],
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Icon(
+                        Icons.chevron_right,
+                        color: Colors.grey[400],
+                        size: 24,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _NearbyGolfCourseCard extends StatelessWidget {
+  final GolfCourse course;
+  final double distance;
+  final VoidCallback onTap;
+
+  const _NearbyGolfCourseCard({
+    required this.course,
+    required this.distance,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    
+    return Container(
+      width: screenWidth * 0.8, // 80% of screen width
+      margin: const EdgeInsets.only(right: 12),
+      child: Card(
+        elevation: 0, // Remove shadow
+        color: Colors.white, // White background
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                // Left side - Course info
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Course Name
+                      Text(
+                        course.name,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 4),
+                      
+                      // City and Distance in same row
+                      Row(
+                        children: [
+                          // Distance
+                          Icon(
+                            Icons.location_on,
+                            size: 14,
+                            color: Colors.grey[600],
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            '${distance.toStringAsFixed(1)} km',
+                            style: TextStyle(
+                              color: Colors.grey[600],
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          if (course.city != null) ...[
+                            const SizedBox(width: 8),
+                            const Text(
+                              '•',
+                              style: TextStyle(
+                                color: Colors.grey,
+                                fontSize: 12,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                course.city!,
+                                style: TextStyle(
+                                  color: Colors.grey[600],
+                                  fontSize: 12,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                
+                // Right side - Contact indicators and arrow
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Contact indicators
+                    if (course.hasContactInfo)
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (course.phone != null) ...[
+                            Icon(
+                              Icons.phone,
+                              size: 12,
+                              color: Colors.grey[500],
+                            ),
+                            const SizedBox(width: 2),
+                          ],
+                          if (course.email != null) ...[
+                            Icon(
+                              Icons.email,
+                              size: 12,
+                              color: Colors.grey[500],
+                            ),
+                            const SizedBox(width: 2),
+                          ],
+                          if (course.primaryWebsite != null) ...[
+                            Icon(
+                              Icons.web,
+                              size: 12,
+                              color: Colors.grey[500],
+                            ),
+                          ],
+                        ],
+                      ),
+                    const SizedBox(height: 4),
+                    Icon(
+                      Icons.chevron_right,
+                      size: 20,
+                      color: Colors.grey[400],
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
