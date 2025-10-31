@@ -4,7 +4,7 @@ class UserProfile {
   final String firstName;
   final String lastName;
   final String? photoUrl;
-  final int handicap;
+  final double handicap;
   final String homeClub;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -15,7 +15,7 @@ class UserProfile {
     required this.firstName,
     required this.lastName,
     this.photoUrl,
-    this.handicap = 0,
+    this.handicap = 0.0,
     this.homeClub = '',
     required this.createdAt,
     required this.updatedAt,
@@ -47,7 +47,7 @@ class UserProfile {
       firstName: map['firstName'] ?? '',
       lastName: map['lastName'] ?? '',
       photoUrl: map['photoUrl'],
-      handicap: map['handicap'] ?? 0,
+      handicap: (map['handicap'] as num?)?.toDouble() ?? 0.0,
       homeClub: map['homeClub'] ?? '',
       createdAt: DateTime.parse(map['createdAt']),
       updatedAt: DateTime.parse(map['updatedAt']),
@@ -61,7 +61,7 @@ class UserProfile {
     String? firstName,
     String? lastName,
     String? photoUrl,
-    int? handicap,
+    double? handicap,
     String? homeClub,
     DateTime? createdAt,
     DateTime? updatedAt,

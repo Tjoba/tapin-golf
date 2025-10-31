@@ -13,8 +13,12 @@ dependencies:
   firebase_core: ^3.6.0
   firebase_auth: ^5.3.1
   cloud_firestore: ^5.4.3
+  firebase_storage: ^12.3.2
   # UI packages
   google_fonts: ^6.2.1
+  # Image handling packages
+  image_picker: ^1.0.7
+  path: ^1.8.3
 
 dev_dependencies:
   flutter_test:

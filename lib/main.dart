@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+// import 'package:firebase_storage/firebase_storage.dart'; // Disabled temporarily
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
 import 'firebase_options.dart';
 import 'models/user_profile.dart';
 import 'services/auth_service.dart';
@@ -299,14 +302,14 @@ class _LoginScreenState extends State<LoginScreen> {
                           onPressed: _isLoading ? null : _handleAuthentication,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.white,
-                            foregroundColor: const Color(0xFF1E3A8A),
+                            foregroundColor: const Color(0xFF1ca9c9),
                             elevation: 0,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(8),
                             ),
                           ),
                           child: _isLoading
-                              ? const CircularProgressIndicator(color: Color(0xFF1E3A8A))
+                              ? const CircularProgressIndicator(color: Color(0xFF1ca9c9))
                               : Text(
                                   _isLogin ? 'Sign In' : 'Create Account',
                                   style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
@@ -398,36 +401,150 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
 }
 
 // Home Screen
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  final AuthService _authService = AuthService();
+  final FirestoreService _firestoreService = FirestoreService();
+  User? _currentUser;
+  UserProfile? _userProfile;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserData();
+  }
+
+  Future<void> _loadUserData() async {
+    _currentUser = _authService.currentUser;
+    if (_currentUser != null) {
+      try {
+        _userProfile = await _firestoreService.getUserProfile(_currentUser!.uid);
+      } catch (e) {
+        print('Error loading user profile: $e');
+      }
+    }
+    if (mounted) {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  // Helper method to get the appropriate profile image for Home screen
+  ImageProvider? _getHomeProfileImageProvider() {
+    // For Tobias Hanner, use the temporary asset image
+    if (_userProfile?.firstName == 'Tobias' && _userProfile?.lastName == 'Hanner') {
+      return const AssetImage('assets/profile/temp-tobias.jpeg');
+    }
+    
+    // If there's a photo URL from Firebase Storage, use it
+    if (_userProfile?.photoUrl != null && _userProfile!.photoUrl!.isNotEmpty) {
+      return NetworkImage(_userProfile!.photoUrl!);
+    }
+    
+    // No image available
+    return null;
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xB2EFEEEE),
-      body: Column(
+      body: Stack(
         children: [
-          // Course image taking up 60% of screen height
-          Container(
-            height: MediaQuery.of(context).size.height * 0.6,
-            width: double.infinity,
-            child: Image.asset(
-              'assets/courses/random/random-course-swe.webp',
-              fit: BoxFit.cover,
-            ),
-          ),
-          // Remaining content area
-          Expanded(
-            child: Container(
-              padding: const EdgeInsets.all(16.0),
-              child: const Center(
-                child: Text(
-                  'Home Screen',
-                  style: TextStyle(fontSize: 24),
+          Column(
+            children: [
+              // Course image taking up 60% of screen height
+              SizedBox(
+                height: MediaQuery.of(context).size.height * 0.6,
+                width: double.infinity,
+                child: Image.asset(
+                  'assets/courses/random/golf_course_hero.jpg',
+                  fit: BoxFit.cover,
                 ),
               ),
-            ),
+              // Remaining content area
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.all(16.0),
+                  child: const Center(
+                    child: Text(
+                      'Home Screen',
+                      style: TextStyle(fontSize: 24),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
+          // Profile picture overlay with handicap in top left
+          if (!_isLoading && _userProfile != null)
+            Positioned(
+              top: MediaQuery.of(context).padding.top + 16, // Account for status bar
+              left: 16,
+              child: Row(
+                children: [
+                  Container(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: Colors.white,
+                        width: 2,
+                      ),
+                    ),
+                    child: CircleAvatar(
+                      key: ValueKey(_userProfile!.photoUrl ?? 'tobias-home'),
+                      radius: 13.5, // 27px diameter
+                      backgroundColor: Colors.white,
+                      backgroundImage: _getHomeProfileImageProvider(),
+                      child: _getHomeProfileImageProvider() == null
+                          ? Text(
+                              _userProfile!.firstName.isNotEmpty && _userProfile!.lastName.isNotEmpty
+                                  ? '${_userProfile!.firstName[0].toUpperCase()}${_userProfile!.lastName[0].toUpperCase()}'
+                                  : _userProfile!.firstName.isNotEmpty
+                                      ? _userProfile!.firstName[0].toUpperCase()
+                                      : 'U',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.green,
+                              ),
+                            )
+                          : null,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Container(
+                    height: 31, // Match profile image height with border
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+                    alignment: Alignment.center, // Center the text vertically
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.6), // 60% transparency
+                      borderRadius: BorderRadius.circular(20), // More rounded corners
+                      border: Border.all(
+                        color: Colors.white,
+                        width: 1,
+                      ),
+                    ),
+                    child: Text(
+                      '${_userProfile!.handicap.toStringAsFixed(1)} HCP',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
         ],
       ),
     );
@@ -444,7 +561,7 @@ class PlayScreen extends StatelessWidget {
       backgroundColor: const Color(0xB2EFEEEE),
       appBar: AppBar(
         title: const Text('Play'),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+        backgroundColor: Colors.white,
       ),
       body: const Center(
         child: Text(
@@ -466,7 +583,7 @@ class BookScreen extends StatelessWidget {
       backgroundColor: const Color(0xB2EFEEEE),
       appBar: AppBar(
         title: const Text('Book'),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+        backgroundColor: Colors.white,
       ),
       body: const Center(
         child: Text(
@@ -519,7 +636,7 @@ class _YouScreenState extends State<YouScreen> {
       backgroundColor: const Color(0xB2EFEEEE),
       appBar: AppBar(
         title: const Text('You'),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+        backgroundColor: Colors.white,
         actions: [
           if (_currentUser != null) ...[
             IconButton(
@@ -566,34 +683,6 @@ class _YouScreenState extends State<YouScreen> {
                       padding: const EdgeInsets.all(16.0),
                       child: Column(
                         children: [
-                          // Profile Picture
-                          CircleAvatar(
-                            radius: 50,
-                            backgroundColor: Colors.green.shade100,
-                            child: _userProfile!.photoUrl != null
-                                ? ClipOval(
-                                    child: Image.network(
-                                      _userProfile!.photoUrl!,
-                                      width: 100,
-                                      height: 100,
-                                      fit: BoxFit.cover,
-                                    ),
-                                  )
-                                : Text(
-                                    _userProfile!.firstName.isNotEmpty && _userProfile!.lastName.isNotEmpty
-                                        ? '${_userProfile!.firstName[0].toUpperCase()}${_userProfile!.lastName[0].toUpperCase()}'
-                                        : _userProfile!.firstName.isNotEmpty
-                                            ? _userProfile!.firstName[0].toUpperCase()
-                                            : 'U',
-                                    style: const TextStyle(
-                                      fontSize: 32,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.green,
-                                    ),
-                                  ),
-                          ),
-                          const SizedBox(height: 20),
-                          
                           // Additional profile actions can be added here in the future
                         ],
                       ),
@@ -620,6 +709,7 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   final AuthService _authService = AuthService();
   final FirestoreService _firestoreService = FirestoreService();
+  final ImagePicker _picker = ImagePicker();
   
   late TextEditingController _firstNameController;
   late TextEditingController _lastNameController;
@@ -628,11 +718,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
   late TextEditingController _homeClubController;
   
   bool _isLoading = false;
+  File? _selectedImage;
+  String? _currentPhotoUrl;
 
   @override
   void initState() {
     super.initState();
     _initializeControllers();
+  }
+
+  @override
+  void didUpdateWidget(SettingsScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.userProfile?.photoUrl != widget.userProfile?.photoUrl) {
+      _currentPhotoUrl = widget.userProfile?.photoUrl;
+    }
   }
 
   void _initializeControllers() {
@@ -646,11 +746,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
       text: widget.userProfile?.email ?? '',
     );
     _handicapController = TextEditingController(
-      text: widget.userProfile?.handicap.toString() ?? '0',
+      text: widget.userProfile?.handicap.toStringAsFixed(1) ?? '0.0',
     );
     _homeClubController = TextEditingController(
       text: widget.userProfile?.homeClub ?? '',
     );
+    _currentPhotoUrl = widget.userProfile?.photoUrl;
   }
 
   @override
@@ -663,6 +764,266 @@ class _SettingsScreenState extends State<SettingsScreen> {
     super.dispose();
   }
 
+  // Helper method to get the appropriate profile image for Settings screen
+  ImageProvider? _getSettingsProfileImageProvider() {
+    // If there's a selected image, use it
+    if (_selectedImage != null) {
+      return FileImage(_selectedImage!);
+    }
+    
+    // For Tobias Hanner, use the temporary asset image
+    if (widget.userProfile?.firstName == 'Tobias' && widget.userProfile?.lastName == 'Hanner') {
+      return const AssetImage('assets/profile/temp-tobias.jpeg');
+    }
+    
+    // If there's a photo URL from Firebase Storage, use it
+    if (_currentPhotoUrl != null && _currentPhotoUrl!.isNotEmpty) {
+      return NetworkImage(_currentPhotoUrl!);
+    }
+    
+    // No image available
+    return null;
+  }
+
+  Future<void> _pickImage() async {
+    showModalBottomSheet(
+      context: context,
+      builder: (BuildContext context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.camera_alt),
+                title: const Text('Take Photo'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _getImage(ImageSource.camera);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_library),
+                title: const Text('Choose from Gallery'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _getImage(ImageSource.gallery);
+                },
+              ),
+              if (_currentPhotoUrl != null || _selectedImage != null)
+                ListTile(
+                  leading: const Icon(Icons.delete),
+                  title: const Text('Remove Photo'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _removePhoto();
+                  },
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _getImage(ImageSource source) async {
+    try {
+      final XFile? image = await _picker.pickImage(
+        source: source,
+        maxWidth: 1024,
+        maxHeight: 1024,
+        imageQuality: 80,
+        requestFullMetadata: false,
+      );
+      
+      if (image != null) {
+        setState(() {
+          _selectedImage = File(image.path);
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error picking image: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  void _removePhoto() {
+    setState(() {
+      _selectedImage = null;
+      _currentPhotoUrl = null;
+    });
+  }
+
+  Future<String?> _uploadImage(File imageFile) async {
+    // Temporary: Firebase Storage not configured
+    print('Firebase Storage not configured - skipping upload');
+    
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Profile pictures will be available soon! Image selected but not uploaded.'),
+          backgroundColor: Colors.orange,
+          duration: Duration(seconds: 3),
+        ),
+      );
+    }
+    
+    // Return null to indicate no upload occurred
+    return null;
+    
+    // Original upload code (disabled for now):
+    /*
+    try {
+      final user = _authService.currentUser;
+      if (user == null) {
+        print('No authenticated user found');
+        throw Exception('User not authenticated');
+      }
+
+      print('Starting image upload for user: ${user.uid}');
+      
+      // Test Firebase Storage connection first
+      try {
+        print('Testing Firebase Storage connection...');
+        final testRef = FirebaseStorage.instance.ref();
+        print('Storage reference created successfully: ${testRef.bucket}');
+        
+        // Try to get storage bucket info
+        final bucket = FirebaseStorage.instance.bucket;
+        print('Storage bucket: $bucket');
+        
+      } catch (storageTestError) {
+        print('Firebase Storage connection test failed: $storageTestError');
+        throw Exception('Firebase Storage not properly configured: $storageTestError');
+      }
+      
+      // Create a unique filename with timestamp to avoid conflicts
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final fileName = '${user.uid}_$timestamp.jpg';
+      
+      // Create the storage reference
+      final storageRef = FirebaseStorage.instance
+          .ref()
+          .child('profile_images')
+          .child(fileName);
+
+      print('Upload path: profile_images/$fileName');
+      print('Full reference path: ${storageRef.fullPath}');
+      
+      // Set metadata for the file
+      final metadata = SettableMetadata(
+        contentType: 'image/jpeg',
+        customMetadata: {
+          'uploadedBy': user.uid,
+          'uploadedAt': timestamp.toString(),
+        },
+      );
+
+      print('Starting file upload...');
+      final uploadTask = storageRef.putFile(imageFile, metadata);
+      
+      // Monitor upload progress
+      uploadTask.snapshotEvents.listen((TaskSnapshot snapshot) {
+        final progress = snapshot.bytesTransferred / snapshot.totalBytes;
+        print('Upload progress: ${(progress * 100).toStringAsFixed(1)}%');
+      });
+      
+      final snapshot = await uploadTask;
+      print('Upload task completed, getting download URL...');
+      
+      final downloadUrl = await snapshot.ref.getDownloadURL();
+      
+      print('Upload successful! Download URL: $downloadUrl');
+      return downloadUrl;
+      
+    } on FirebaseException catch (e) {
+      print('Firebase Storage Error: ${e.code} - ${e.message}');
+      print('Error details: ${e.toString()}');
+      
+      String userFriendlyMessage;
+      switch (e.code) {
+        case 'object-not-found':
+          userFriendlyMessage = 'Storage bucket not found. Please check Firebase Storage configuration.';
+          break;
+        case 'bucket-not-found':
+          userFriendlyMessage = 'Storage bucket does not exist. Please configure Firebase Storage.';
+          break;
+        case 'project-not-found':
+          userFriendlyMessage = 'Firebase project not found. Please check project configuration.';
+          break;
+        case 'quota-exceeded':
+          userFriendlyMessage = 'Storage quota exceeded. Please try again later.';
+          break;
+        case 'unauthenticated':
+          userFriendlyMessage = 'Authentication required. Please log in again.';
+          break;
+        case 'unauthorized':
+          userFriendlyMessage = 'Permission denied. Please check Storage security rules.';
+          break;
+        case 'retry-limit-exceeded':
+          userFriendlyMessage = 'Upload failed after multiple attempts. Please try again.';
+          break;
+        case 'invalid-checksum':
+          userFriendlyMessage = 'File validation failed. Please try again.';
+          break;
+        case 'canceled':
+          userFriendlyMessage = 'Upload was canceled.';
+          break;
+        default:
+          userFriendlyMessage = 'Upload failed: ${e.message ?? 'Unknown error'}';
+      }
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(userFriendlyMessage),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 7),
+            action: SnackBarAction(
+              label: 'Details',
+              onPressed: () {
+                showDialog(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: const Text('Error Details'),
+                    content: Text('Error Code: ${e.code}\nMessage: ${e.message}'),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: const Text('OK'),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+        );
+      }
+      
+      throw Exception('Firebase Storage Error: ${e.code} - ${e.message}');
+      
+    } catch (e) {
+      print('General upload error: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Upload failed: ${e.toString()}'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+      throw e;
+    }
+    */
+  }
+
   Future<void> _saveChanges() async {
     if (widget.userProfile == null) return;
 
@@ -671,21 +1032,89 @@ class _SettingsScreenState extends State<SettingsScreen> {
     });
 
     try {
+      String? photoUrl = _currentPhotoUrl;
+      bool imageUploadFailed = false;
+      
+      // Upload new image if selected
+      if (_selectedImage != null) {
+        try {
+          print('Attempting to upload image...');
+          photoUrl = await _uploadImage(_selectedImage!);
+          print('Image uploaded successfully: $photoUrl');
+        } catch (imageError) {
+          print('Image upload failed: $imageError');
+          imageUploadFailed = true;
+          
+          // Show specific image upload error
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Image upload failed: ${imageError.toString()}'),
+                backgroundColor: Colors.orange,
+                duration: const Duration(seconds: 5),
+              ),
+            );
+          }
+          
+          // Ask user if they want to continue without image
+          if (mounted) {
+            final shouldContinue = await showDialog<bool>(
+              context: context,
+              builder: (context) => AlertDialog(
+                title: const Text('Image Upload Failed'),
+                content: const Text('Would you like to save your profile changes without updating the photo?'),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(false),
+                    child: const Text('Cancel'),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(true),
+                    child: const Text('Continue'),
+                  ),
+                ],
+              ),
+            );
+            
+            if (shouldContinue != true) {
+              return; // User cancelled
+            }
+          }
+          
+          // Continue with existing photo URL
+          photoUrl = _currentPhotoUrl;
+        }
+      }
+      
       final updatedProfile = widget.userProfile!.copyWith(
         firstName: _firstNameController.text.trim(),
         lastName: _lastNameController.text.trim(),
-        handicap: int.tryParse(_handicapController.text.trim()) ?? 0,
+        handicap: double.tryParse(_handicapController.text.trim()) ?? 0.0,
         homeClub: _homeClubController.text.trim(),
+        photoUrl: photoUrl,
       );
 
+      print('Updating profile in Firestore...');
       await _firestoreService.updateUserProfile(updatedProfile);
+      print('Profile updated successfully in Firestore');
+      
+      // Update local state with new photo URL and clear selected image
+      setState(() {
+        _currentPhotoUrl = photoUrl;
+        _selectedImage = null;
+      });
       
       // Show success message
       if (mounted) {
+        final message = imageUploadFailed 
+            ? 'Profile updated! (Photo uploads temporarily disabled)'
+            : 'Profile updated successfully!';
+            
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Profile updated successfully!'),
-            backgroundColor: Colors.green,
+          SnackBar(
+            content: Text(message),
+            backgroundColor: imageUploadFailed ? Colors.orange : Colors.green,
+            duration: const Duration(seconds: 4),
           ),
         );
         
@@ -699,9 +1128,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
       print('Error updating profile: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failed to update profile. Please try again.'),
+          SnackBar(
+            content: Text('Failed to update profile: ${e.toString()}'),
             backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
           ),
         );
       }
@@ -752,127 +1182,198 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xB2EFEEEE),
+      backgroundColor: const Color(0xFFEFEEEE), // Changed to fully opaque
       appBar: AppBar(
         title: const Text('Settings'),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        actions: [
-          if (!_isLoading)
-            IconButton(
-              onPressed: _saveChanges,
-              icon: const Icon(Icons.save),
-              tooltip: 'Save Changes',
-            ),
-        ],
+        backgroundColor: Colors.white,
+        leading: IconButton(
+          onPressed: () => Navigator.of(context).pop(),
+          icon: const Icon(Icons.arrow_back),
+          tooltip: 'Back',
+        ),
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
+          : GestureDetector(
+              onTap: () {
+                // Dismiss keyboard when tapping outside of text fields
+                FocusScope.of(context).unfocus();
+              },
+              child: SingleChildScrollView(
               padding: const EdgeInsets.all(16.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Profile Section
                   Card(
+                    color: Colors.transparent,
+                    elevation: 0,
                     child: Padding(
-                      padding: const EdgeInsets.all(16.0),
+                      padding: EdgeInsets.zero,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Row(
-                            children: [
-                              Icon(
-                                Icons.person,
-                                color: Colors.green.shade600,
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                'Profile Information',
-                                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                  fontWeight: FontWeight.bold,
+                          // Profile Picture Section
+                          Center(
+                            child: Column(
+                              children: [
+                                GestureDetector(
+                                  onTap: _pickImage,
+                                  child: Stack(
+                                    children: [
+                                      CircleAvatar(
+                                        key: ValueKey(_currentPhotoUrl ?? 'tobias-temp'),
+                                        radius: 60,
+                                        backgroundColor: Colors.grey.shade200,
+                                        backgroundImage: _getSettingsProfileImageProvider(),
+                                        child: _getSettingsProfileImageProvider() == null
+                                            ? Icon(
+                                                Icons.person,
+                                                size: 60,
+                                                color: Colors.grey.shade400,
+                                              )
+                                            : null,
+                                      ),
+                                      Positioned(
+                                        bottom: 0,
+                                        right: 0,
+                                        child: Container(
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFF0093AF),
+                                            shape: BoxShape.circle,
+                                            border: Border.all(
+                                              color: Colors.white,
+                                              width: 2,
+                                            ),
+                                          ),
+                                          padding: const EdgeInsets.all(8),
+                                          child: const Icon(
+                                            Icons.camera_alt,
+                                            color: Colors.white,
+                                            size: 20,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Tap to change photo',
+                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: Colors.grey.shade600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                          
+                          Container(
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(8.0),
+                            ),
+                            child: TextField(
+                              controller: _firstNameController,
+                              decoration: const InputDecoration(
+                                labelText: 'First Name',
+                                border: InputBorder.none,
+                                contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                               ),
-                            ],
+                              textCapitalization: TextCapitalization.words,
+                            ),
                           ),
                           const SizedBox(height: 16),
-                          TextField(
-                            controller: _firstNameController,
-                            decoration: const InputDecoration(
-                              labelText: 'First Name',
-                              border: OutlineInputBorder(),
-                              prefixIcon: Icon(Icons.person_outline),
+                          Container(
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(8.0),
                             ),
-                            textCapitalization: TextCapitalization.words,
+                            child: TextField(
+                              controller: _lastNameController,
+                              decoration: const InputDecoration(
+                                labelText: 'Last Name',
+                                border: InputBorder.none,
+                                contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                              ),
+                              textCapitalization: TextCapitalization.words,
+                            ),
                           ),
                           const SizedBox(height: 16),
-                          TextField(
-                            controller: _lastNameController,
-                            decoration: const InputDecoration(
-                              labelText: 'Last Name',
-                              border: OutlineInputBorder(),
-                              prefixIcon: Icon(Icons.person_outline),
+                          Container(
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(8.0),
                             ),
-                            textCapitalization: TextCapitalization.words,
-                          ),
-                          const SizedBox(height: 16),
-                          TextField(
-                            controller: _emailController,
-                            decoration: const InputDecoration(
-                              labelText: 'Email',
-                              border: OutlineInputBorder(),
-                              prefixIcon: Icon(Icons.email_outlined),
+                            child: TextField(
+                              controller: _emailController,
+                              decoration: const InputDecoration(
+                                labelText: 'Email',
+                                border: InputBorder.none,
+                                contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                              ),
+                              enabled: false, // Email cannot be changed
+                              style: TextStyle(color: Colors.grey.shade600),
                             ),
-                            enabled: false, // Email cannot be changed
-                            style: TextStyle(color: Colors.grey.shade600),
                           ),
                         ],
                       ),
                     ),
                   ),
 
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 8),
 
                   // Golf Information Section
                   Card(
+                    color: Colors.transparent,
+                    elevation: 0,
                     child: Padding(
-                      padding: const EdgeInsets.all(16.0),
+                      padding: EdgeInsets.zero,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Row(
-                            children: [
-                              Icon(
-                                Icons.sports_golf,
-                                color: Colors.green.shade600,
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                'Golf Information',
-                                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          TextField(
-                            controller: _handicapController,
-                            decoration: const InputDecoration(
-                              labelText: 'Handicap',
-                              border: OutlineInputBorder(),
-                              prefixIcon: Icon(Icons.sports_golf),
-                              helperText: 'Enter your current golf handicap',
+                          Text(
+                            'Golf Information',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w400,
+                              fontSize: 12,
+                              color: Color(0xFF919194),
                             ),
-                            keyboardType: TextInputType.number,
                           ),
                           const SizedBox(height: 16),
-                          TextField(
-                            controller: _homeClubController,
-                            decoration: const InputDecoration(
-                              labelText: 'Home Club',
-                              border: OutlineInputBorder(),
-                              prefixIcon: Icon(Icons.location_on_outlined),
-                              helperText: 'Your primary golf club or course',
+                          Container(
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(8.0),
+                            ),
+                            child: TextField(
+                              controller: _handicapController,
+                              decoration: const InputDecoration(
+                                labelText: 'Handicap',
+                                border: InputBorder.none,
+                                contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                              ),
+                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                              textInputAction: TextInputAction.done,
+                              onEditingComplete: () {
+                                FocusScope.of(context).unfocus();
+                              },
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          Container(
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(8.0),
+                            ),
+                            child: TextField(
+                              controller: _homeClubController,
+                              decoration: const InputDecoration(
+                                labelText: 'Home Club',
+                                border: InputBorder.none,
+                                contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                              ),
                             ),
                           ),
                         ],
@@ -888,15 +1389,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       // Save Button
                       SizedBox(
                         width: double.infinity,
-                        child: ElevatedButton.icon(
+                        child: ElevatedButton(
                           onPressed: _isLoading ? null : _saveChanges,
-                          icon: const Icon(Icons.save),
-                          label: const Text('Save Changes'),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.green,
+                            backgroundColor: const Color(0xFF1ca9c9),
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(vertical: 12),
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(4.0),
+                            ),
                           ),
+                          child: const Text('Save Changes'),
                         ),
                       ),
 
@@ -905,15 +1409,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       // Logout Button
                       SizedBox(
                         width: double.infinity,
-                        child: OutlinedButton.icon(
+                        child: OutlinedButton(
                           onPressed: _confirmLogout,
-                          icon: const Icon(Icons.logout),
-                          label: const Text('Sign Out'),
                           style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.red,
-                            side: const BorderSide(color: Colors.red),
+                            foregroundColor: const Color(0xFF1ca9c9),
+                            side: const BorderSide(color: Color(0xFF1ca9c9)),
                             padding: const EdgeInsets.symmetric(vertical: 12),
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(4.0),
+                            ),
                           ),
+                          child: const Text('Sign Out'),
                         ),
                       ),
                     ],
@@ -922,6 +1429,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   const SizedBox(height: 24),
                 ],
               ),
+            ),
             ),
     );
   }

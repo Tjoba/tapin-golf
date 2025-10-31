@@ -1,1 +1,40 @@
-{"flutter":{"platforms":{"android":{"default":{"projectId":"tapin-a79e6","appId":"1:222192939392:android:3317c2a5fabe3d6a2c1165","fileOutput":"android/app/google-services.json"}},"ios":{"default":{"projectId":"tapin-a79e6","appId":"1:222192939392:ios:2b0a1b1f614169892c1165","uploadDebugSymbols":false,"fileOutput":"ios/Runner/GoogleService-Info.plist"}},"macos":{"default":{"projectId":"tapin-a79e6","appId":"1:222192939392:ios:2b0a1b1f614169892c1165","uploadDebugSymbols":false,"fileOutput":"macos/Runner/GoogleService-Info.plist"}},"dart":{"lib/firebase_options.dart":{"projectId":"tapin-a79e6","configurations":{"web":"1:222192939392:web:85807f0716305f7a2c1165"}}}}}}
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "tapin-a79e6",
+          "appId": "1:222192939392:android:3317c2a5fabe3d6a2c1165",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "ios": {
+        "default": {
+          "projectId": "tapin-a79e6",
+          "appId": "1:222192939392:ios:2b0a1b1f614169892c1165",
+          "uploadDebugSymbols": false,
+          "fileOutput": "ios/Runner/GoogleService-Info.plist"
+        }
+      },
+      "macos": {
+        "default": {
+          "projectId": "tapin-a79e6",
+          "appId": "1:222192939392:ios:2b0a1b1f614169892c1165",
+          "uploadDebugSymbols": false,
+          "fileOutput": "macos/Runner/GoogleService-Info.plist"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "tapin-a79e6",
+          "configurations": {
+            "web": "1:222192939392:web:85807f0716305f7a2c1165"
+          }
+        }
+      }
+    }
+  },
+  "storage": {
+    "rules": "storage.rules"
+  }
+}
