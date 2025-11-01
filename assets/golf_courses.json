@@ -3603,8 +3603,8 @@
     },
     "logo": "assets/courses/logos/saltsjobadens-gk.jpeg",
     "holes": [
-      "18-hålsbanan",
-      "9-hålsbanan"
+      "18",
+      "9"
     ]
   },
   {
@@ -6138,7 +6138,7 @@
     },
     "logo": "assets/courses/logos/nacka-gk.png",
     "holes": [
-      "18 hole"
+      "18"
     ]
   },
   {
@@ -6298,9 +6298,9 @@
       "website": "https://sgk.nu/"
     },
     "logo": "assets/courses/logos/sgk.png",
-    "mainImage": "assets/courses/images/sgk_001.jpg",
+    "mainImage": "assets/courses/logos/sgk_001.jpg",
     "holes": [
-      "18 hole"
+      "18"
     ]
   },
   {
@@ -6663,8 +6663,8 @@
     },
     "logo": "assets/courses/logos/fagelbro.png",
     "holes": [
-      "18 hole",
-      "9 hole"
+      "18",
+      "9"
     ]
   },
   {
@@ -7075,7 +7075,7 @@
     },
     "logo": "assets/courses/logos/bjorkhagens-gk.png",
     "holes": [
-      "9-hålsbanan"
+      "9"
     ]
   },
   {
@@ -7499,10 +7499,10 @@
       "wikidata": "Q2213522"
     },
     "logo": "assets/courses/logos/bro-hof.jpeg",
-    "mainImage": "assets/courses/images/brohof_001.webp",
+    "mainImage": "assets/courses/logos/brohof_001.webp",
     "holes": [
-      "18 hole",
-      "9 hole"
+      "18",
+      "9"
     ]
   },
   {

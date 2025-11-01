@@ -115,4 +115,102 @@ class FirestoreService {
       rethrow;
     }
   }
+
+  // Add course to favorites
+  Future<void> addFavoriteCourse(String uid, int courseId) async {
+    try {
+      DocumentReference userDoc = _firestore
+          .collection(_usersCollection)
+          .doc(uid);
+
+      await _firestore.runTransaction((transaction) async {
+        DocumentSnapshot snapshot = await transaction.get(userDoc);
+        if (snapshot.exists) {
+          List<dynamic> currentFavorites = snapshot.get('favoriteCourses') ?? [];
+          List<int> favorites = List<int>.from(currentFavorites);
+          
+          if (!favorites.contains(courseId)) {
+            favorites.add(courseId);
+            transaction.update(userDoc, {
+              'favoriteCourses': favorites,
+              'updatedAt': DateTime.now().toIso8601String(),
+            });
+          }
+        }
+      });
+    } catch (e) {
+      print('Error adding favorite course: $e');
+      rethrow;
+    }
+  }
+
+  // Remove course from favorites
+  Future<void> removeFavoriteCourse(String uid, int courseId) async {
+    try {
+      DocumentReference userDoc = _firestore
+          .collection(_usersCollection)
+          .doc(uid);
+
+      await _firestore.runTransaction((transaction) async {
+        DocumentSnapshot snapshot = await transaction.get(userDoc);
+        if (snapshot.exists) {
+          List<dynamic> currentFavorites = snapshot.get('favoriteCourses') ?? [];
+          List<int> favorites = List<int>.from(currentFavorites);
+          
+          favorites.remove(courseId);
+          transaction.update(userDoc, {
+            'favoriteCourses': favorites,
+            'updatedAt': DateTime.now().toIso8601String(),
+          });
+        }
+      });
+    } catch (e) {
+      print('Error removing favorite course: $e');
+      rethrow;
+    }
+  }
+
+  // Toggle course favorite status
+  Future<void> toggleFavoriteCourse(String uid, int courseId) async {
+    try {
+      DocumentSnapshot userDoc = await _firestore
+          .collection(_usersCollection)
+          .doc(uid)
+          .get();
+
+      if (userDoc.exists) {
+        List<dynamic> currentFavorites = userDoc.get('favoriteCourses') ?? [];
+        List<int> favorites = List<int>.from(currentFavorites);
+        
+        if (favorites.contains(courseId)) {
+          await removeFavoriteCourse(uid, courseId);
+        } else {
+          await addFavoriteCourse(uid, courseId);
+        }
+      }
+    } catch (e) {
+      print('Error toggling favorite course: $e');
+      rethrow;
+    }
+  }
+
+  // Check if course is favorited
+  Future<bool> isFavoriteCourse(String uid, int courseId) async {
+    try {
+      DocumentSnapshot userDoc = await _firestore
+          .collection(_usersCollection)
+          .doc(uid)
+          .get();
+
+      if (userDoc.exists) {
+        List<dynamic> currentFavorites = userDoc.get('favoriteCourses') ?? [];
+        List<int> favorites = List<int>.from(currentFavorites);
+        return favorites.contains(courseId);
+      }
+      return false;
+    } catch (e) {
+      print('Error checking favorite course: $e');
+      return false;
+    }
+  }
 }

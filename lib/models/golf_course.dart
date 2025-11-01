@@ -5,6 +5,8 @@ class GolfCourse {
   final double lat;
   final double lon;
   final Map<String, dynamic> tags;
+  final List<String>? holes;
+  final String? logo;
 
   GolfCourse({
     required this.id,
@@ -13,6 +15,8 @@ class GolfCourse {
     required this.lat,
     required this.lon,
     required this.tags,
+    this.holes,
+    this.logo,
   });
 
   factory GolfCourse.fromJson(Map<String, dynamic> json) {
@@ -23,6 +27,10 @@ class GolfCourse {
       lat: (json['lat'] as num).toDouble(),
       lon: (json['lon'] as num).toDouble(),
       tags: json['tags'] as Map<String, dynamic>,
+      holes: json['holes'] != null 
+          ? List<String>.from(json['holes'] as List)
+          : null,
+      logo: json['logo'] as String?,
     );
   }
 
@@ -34,6 +42,8 @@ class GolfCourse {
       'lat': lat,
       'lon': lon,
       'tags': tags,
+      'holes': holes,
+      'logo': logo,
     };
   }
 
@@ -44,9 +54,20 @@ class GolfCourse {
   String? get phone => tags['phone'] as String?;
   String? get website => tags['website'] as String?;
   String? get url => tags['url'] as String?;
+  String? get description => tags['description'] as String?;
+  String? get golfCourse => tags['golf:course'] as String?;
 
   // Get the primary website/url
   String? get primaryWebsite => website ?? url;
+
+  // Get course hole information
+  String? get holeInfo {
+    // Use the first item from holes array if available
+    if (holes != null && holes!.isNotEmpty) {
+      return holes!.first;
+    }
+    return null;
+  }
 
   // Check if course has contact information
   bool get hasContactInfo => email != null || phone != null;

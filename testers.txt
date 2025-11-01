@@ -1,0 +1,5 @@
+# Add your friends' email addresses here, one per line
+# Example:
+# friend1@example.com
+# friend2@example.com
+tobbe.hanner@gmail.com

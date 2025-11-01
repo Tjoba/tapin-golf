@@ -572,6 +572,7 @@ class _PlayScreenState extends State<PlayScreen> {
   bool _isLoadingCourses = true;
   bool _locationError = false;
   Position? _userLocation;
+  GolfCourse? _selectedCourse;
 
   @override
   void initState() {
@@ -650,6 +651,113 @@ class _PlayScreenState extends State<PlayScreen> {
     }
   }
 
+  void _showCourseSelectionModal(GolfCourse course) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (BuildContext context) {
+        return Container(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header
+              Text(
+                course.name,
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              if (course.city != null)
+                Text(
+                  course.city!,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey[600],
+                  ),
+                ),
+              const SizedBox(height: 16),
+              
+              // Holes section
+              const Text(
+                'Available holes:',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 8),
+              
+              // Display holes or fallback message
+              if (course.holes != null && course.holes!.isNotEmpty)
+                ...course.holes!.map((hole) => Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.golf_course,
+                        size: 16,
+                        color: Color(0xFF1ca9c9),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        hole,
+                        style: const TextStyle(fontSize: 14),
+                      ),
+                    ],
+                  ),
+                ))
+              else
+                Text(
+                  'Course information available',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey[600],
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              
+              const SizedBox(height: 24),
+              
+              // OK Button
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    setState(() {
+                      _selectedCourse = course;
+                    });
+                    Navigator.pop(context);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF1ca9c9),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: const Text(
+                    'Select Course',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -681,29 +789,12 @@ class _PlayScreenState extends State<PlayScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Play Golf',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Track your game and discover new courses',
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.grey[600],
-              ),
-            ),
-            const SizedBox(height: 24),
-            
-            // Nearby Courses Section
+            // Select Course Section
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text(
-                  'Nearby Courses',
+                  'Select course',
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -727,14 +818,22 @@ class _PlayScreenState extends State<PlayScreen> {
                   ),
               ],
             ),
-            const SizedBox(height: 4),
-            Text(
-              _locationError 
-                  ? 'Showing courses near Stockholm (demo)'
-                  : 'Within 6km of your location',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey[600],
+            const SizedBox(height: 12),
+            
+            // Filter chip
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1ca9c9),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: const Text(
+                'Nearby',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             ),
             const SizedBox(height: 12),
@@ -786,46 +885,14 @@ class _PlayScreenState extends State<PlayScreen> {
                             return _NearbyGolfCourseCard(
                               course: course,
                               distance: distance,
+                              isSelected: _selectedCourse?.id == course.id,
                               onTap: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => const GolfCoursesScreen(),
-                                  ),
-                                );
+                                _showCourseSelectionModal(course);
                               },
                             );
                           },
                         ),
             ),
-            
-            const SizedBox(height: 16),
-            
-            // View All Button
-            if (_nearbyCourses.isNotEmpty)
-              Center(
-                child: TextButton.icon(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const GolfCoursesScreen(),
-                      ),
-                    );
-                  },
-                  icon: const Icon(
-                    Icons.list,
-                    color: Color(0xFF1ca9c9),
-                  ),
-                  label: const Text(
-                    'View All Courses',
-                    style: TextStyle(
-                      color: Color(0xFF1ca9c9),
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ),
             
             const SizedBox(height: 24),
             
@@ -922,11 +989,13 @@ class _NearbyGolfCourseCard extends StatelessWidget {
   final GolfCourse course;
   final double distance;
   final VoidCallback onTap;
+  final bool isSelected;
 
   const _NearbyGolfCourseCard({
     required this.course,
     required this.distance,
     required this.onTap,
+    this.isSelected = false,
   });
 
   @override
@@ -949,6 +1018,39 @@ class _NearbyGolfCourseCard extends StatelessWidget {
             padding: const EdgeInsets.all(12),
             child: Row(
               children: [
+                // Course Logo (if available)
+                if (course.logo != null)
+                  Container(
+                    width: 48,
+                    height: 48,
+                    margin: const EdgeInsets.only(right: 12),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.asset(
+                        course.logo!,
+                        width: 48,
+                        height: 48,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          // Fallback to default icon if logo fails to load
+                          return Container(
+                            width: 48,
+                            height: 48,
+                            decoration: BoxDecoration(
+                              color: Colors.grey[100],
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Icon(
+                              Icons.golf_course,
+                              color: Colors.grey[400],
+                              size: 24,
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                
                 // Left side - Course info
                 Expanded(
                   child: Column(
@@ -1009,52 +1111,35 @@ class _NearbyGolfCourseCard extends StatelessWidget {
                           ],
                         ],
                       ),
+                      
+                      // Hole information
+                      if (course.holeInfo != null) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          'Selected course: ${course.holeInfo!}',
+                          style: const TextStyle(
+                            color: Color(0xFF1ca9c9),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
                     ],
                   ),
                 ),
                 
-                // Right side - Contact indicators and arrow
-                Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Contact indicators
-                    if (course.hasContactInfo)
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (course.phone != null) ...[
-                            Icon(
-                              Icons.phone,
-                              size: 12,
-                              color: Colors.grey[500],
-                            ),
-                            const SizedBox(width: 2),
-                          ],
-                          if (course.email != null) ...[
-                            Icon(
-                              Icons.email,
-                              size: 12,
-                              color: Colors.grey[500],
-                            ),
-                            const SizedBox(width: 2),
-                          ],
-                          if (course.primaryWebsite != null) ...[
-                            Icon(
-                              Icons.web,
-                              size: 12,
-                              color: Colors.grey[500],
-                            ),
-                          ],
-                        ],
-                      ),
-                    const SizedBox(height: 4),
-                    Icon(
-                      Icons.chevron_right,
-                      size: 20,
-                      color: Colors.grey[400],
+                // Right side - Checkmark icon when selected
+                if (isSelected)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 16.0),
+                    child: Icon(
+                      Icons.check_circle,
+                      color: const Color(0xFF1ca9c9),
+                      size: 24,
                     ),
-                  ],
-                ),
+                  ),
               ],
             ),
           ),
@@ -1065,21 +1150,808 @@ class _NearbyGolfCourseCard extends StatelessWidget {
 }
 
 // Book Screen
-class BookScreen extends StatelessWidget {
+class BookScreen extends StatefulWidget {
   const BookScreen({super.key});
+
+  @override
+  State<BookScreen> createState() => _BookScreenState();
+}
+
+class _BookScreenState extends State<BookScreen> {
+  final AuthService _authService = AuthService();
+  final FirestoreService _firestoreService = FirestoreService();
+  final GolfCourseService _golfCourseService = GolfCourseService.instance;
+  
+  DateTime selectedDate = DateTime.now();
+  late ScrollController _scrollController;
+  int daysToShow = 60; // Start with 2 months
+  List<String> players = []; // List to store player names
+  
+  // Favorites filter state
+  UserProfile? _userProfile;
+  List<GolfCourse> _favoriteCourses = [];
+  bool _showFavoritesOnly = true; // Default to showing favorites
+  List<GolfCourse> _recentSearches = []; // Add recent searches list
+  
+  @override
+  void initState() {
+    super.initState();
+    _scrollController = ScrollController();
+    
+    // Add scroll listener to load more dates when near the end
+    _scrollController.addListener(_onScroll);
+    
+    // Load user profile and favorites
+    _loadUserAndFavorites();
+    
+    // Load recent searches (for demo - you can replace with actual search history)
+    _loadRecentSearches();
+    
+    // No auto-scroll - start at the beginning showing today's date
+  }
+  
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    super.dispose();
+  }
+  
+  void _onScroll() {
+    // Check if user is near the end of the list
+    if (_scrollController.hasClients) {
+      final maxScroll = _scrollController.position.maxScrollExtent;
+      final currentScroll = _scrollController.position.pixels;
+      final threshold = maxScroll * 0.8; // Load more when 80% scrolled
+      
+      if (currentScroll >= threshold) {
+        // Load next month (approximately 30 more days)
+        setState(() {
+          daysToShow += 30;
+        });
+      }
+    }
+  }
+  
+  Future<void> _loadUserAndFavorites() async {
+    final user = _authService.currentUser;
+    if (user == null) return;
+    
+    try {
+      setState(() {
+        // _isLoadingFavorites = true; // Removed loading state
+      });
+      
+      // Load user profile
+      _userProfile = await _firestoreService.getUserProfile(user.uid);
+      
+      if (_userProfile != null && _userProfile!.favoriteCourses.isNotEmpty) {
+        // Load all courses
+        final allCourses = await _golfCourseService.loadCourses();
+        
+        // Filter to get only favorite courses
+        _favoriteCourses = allCourses
+            .where((course) => _userProfile!.favoriteCourses.contains(course.id))
+            .toList();
+      }
+      
+      setState(() {
+        // _isLoadingFavorites = false; // Removed loading state
+      });
+    } catch (e) {
+      print('Error loading favorites: $e');
+      setState(() {
+        // _isLoadingFavorites = false; // Removed loading state
+      });
+    }
+  }
+  
+  Future<void> _loadRecentSearches() async {
+    // For demo purposes, load a few sample courses as recent searches
+    // In a real app, you would load this from shared preferences or a database
+    try {
+      final courses = await _golfCourseService.getAllCourses();
+      
+      // Sample recent searches - you can replace this with actual search history logic
+      final sampleRecentSearches = courses.where((course) => 
+        course.name.contains('Bro') || 
+        course.name.contains('Wermdo') || 
+        course.name.contains('Halmstad')
+      ).take(3).toList();
+      
+      setState(() {
+        _recentSearches = sampleRecentSearches;
+      });
+    } catch (e) {
+      print('Error loading recent searches: $e');
+    }
+  }
+  
+  void _showPlayerSelectionModal() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return DraggableScrollableSheet(
+              initialChildSize: 0.8,
+              minChildSize: 0.5,
+              maxChildSize: 0.9,
+              expand: false,
+              builder: (context, scrollController) {
+                return Container(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Handle
+                      Center(
+                        child: Container(
+                          width: 40,
+                          height: 4,
+                          margin: const EdgeInsets.only(bottom: 20),
+                          decoration: BoxDecoration(
+                            color: Colors.grey[300],
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                      ),
+                      
+                      // Header
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Select Players',
+                            style: TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          Text(
+                            '${players.length}/4',
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: Colors.grey[600],
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                      
+                      const SizedBox(height: 20),
+                      
+                      // Search bar
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.grey[100],
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const TextField(
+                          decoration: InputDecoration(
+                            hintText: 'Search players...',
+                            prefixIcon: Icon(Icons.search, color: Color(0xFF1ca9c9)),
+                            border: InputBorder.none,
+                            contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          ),
+                        ),
+                      ),
+                      
+                      const SizedBox(height: 20),
+                      
+                      // Current players section
+                      if (players.isNotEmpty) ...[
+                        Text(
+                          'Selected Players',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.grey[800],
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        
+                        // Selected players list
+                        ...players.asMap().entries.map((entry) {
+                          final index = entry.key;
+                          final player = entry.value;
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF1ca9c9).withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: const Color(0xFF1ca9c9).withOpacity(0.3),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                CircleAvatar(
+                                  backgroundColor: const Color(0xFF1ca9c9),
+                                  radius: 16,
+                                  child: Text(
+                                    player[0].toUpperCase(),
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    player,
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                                IconButton(
+                                  onPressed: () {
+                                    setState(() {
+                                      players.removeAt(index);
+                                    });
+                                    setModalState(() {});
+                                  },
+                                  icon: const Icon(
+                                    Icons.remove_circle,
+                                    color: Colors.red,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }).toList(),
+                        
+                        const SizedBox(height: 20),
+                      ],
+                      
+                      // Add new player button
+                      if (players.length < 4) ...[
+                        Text(
+                          'Add New Player',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.grey[800],
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        
+                        InkWell(
+                          onTap: () {
+                            Navigator.pop(context); // Close modal first
+                            _showAddPlayerDialog();
+                          },
+                          borderRadius: BorderRadius.circular(12),
+                          child: Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              border: Border.all(
+                                color: const Color(0xFF1ca9c9),
+                                width: 2,
+                              ),
+                              borderRadius: BorderRadius.circular(12),
+                              color: const Color(0xFF1ca9c9).withOpacity(0.05),
+                            ),
+                            child: const Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.person_add,
+                                  color: Color(0xFF1ca9c9),
+                                  size: 24,
+                                ),
+                                SizedBox(width: 12),
+                                Text(
+                                  'Add Player Manually',
+                                  style: TextStyle(
+                                    color: Color(0xFF1ca9c9),
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                      
+                      const Spacer(),
+                      
+                      // Done button
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: () {
+                            Navigator.pop(context);
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF1ca9c9),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: Text(
+                            players.isEmpty 
+                                ? 'Close' 
+                                : 'Done (${players.length} player${players.length == 1 ? '' : 's'})',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+  
+  void _showAddPlayerDialog() {
+    final TextEditingController playerController = TextEditingController();
+    
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Add Player'),
+          content: TextField(
+            controller: playerController,
+            decoration: const InputDecoration(
+              hintText: 'Enter player name',
+              border: OutlineInputBorder(),
+            ),
+            autofocus: true,
+            textCapitalization: TextCapitalization.words,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                final playerName = playerController.text.trim();
+                if (playerName.isNotEmpty && players.length < 4) {
+                  setState(() {
+                    players.add(playerName);
+                  });
+                }
+                Navigator.of(context).pop();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF1ca9c9),
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Add'),
+            ),
+          ],
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xB2EFEEEE),
-      appBar: AppBar(
-        title: const Text('Book'),
-        backgroundColor: Colors.white,
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(130), // Increased height to prevent overflow
+        child: AppBar(
+          backgroundColor: Colors.white,
+          elevation: 0,
+          flexibleSpace: Container(
+            padding: const EdgeInsets.only(top: kToolbarHeight + 4), // Added extra padding
+            child: Column(
+              children: [
+                // Title and Add Players row
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 6.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Book Tee Time',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black,
+                        ),
+                      ),
+                      
+                      // Add Players button
+                      InkWell(
+                        onTap: _showPlayerSelectionModal,
+                        borderRadius: BorderRadius.circular(16),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                players.isEmpty ? Icons.person_add : Icons.group,
+                                color: const Color(0xFF1ca9c9),
+                                size: 16,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                players.isEmpty 
+                                    ? 'Add players'
+                                    : 'Players: ${players.length}',
+                                style: const TextStyle(
+                                  color: Color(0xFF1ca9c9),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                
+                // Separator line
+                Container(
+                  height: 1,
+                  color: const Color(0xB2EFEEEE), // Same as background color
+                  margin: const EdgeInsets.symmetric(horizontal: 16),
+                ),
+                
+                // Horizontal Date Picker
+                Expanded( // Use Expanded to prevent overflow
+                  child: ListView.builder(
+                    controller: _scrollController,
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), // Added vertical padding
+                    itemCount: daysToShow, // Dynamic number of days
+                    itemBuilder: (context, index) {
+                      final date = DateTime.now().add(Duration(days: index));
+                      final isSelected = date.day == selectedDate.day &&
+                          date.month == selectedDate.month &&
+                          date.year == selectedDate.year;
+                      final isToday = date.day == DateTime.now().day &&
+                          date.month == DateTime.now().month &&
+                          date.year == DateTime.now().year;
+                      
+                      return Container(
+                        width: 60,
+                        margin: const EdgeInsets.only(right: 8),
+                        child: InkWell(
+                          onTap: () {
+                            setState(() {
+                              selectedDate = date;
+                            });
+                          },
+                          borderRadius: BorderRadius.circular(12),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: isSelected 
+                                  ? const Color(0xFF1ca9c9)
+                                  : isToday 
+                                      ? const Color(0xFF1ca9c9).withOpacity(0.1)
+                                      : Colors.transparent,
+                              borderRadius: BorderRadius.circular(12),
+                              border: isToday && !isSelected
+                                  ? Border.all(color: const Color(0xFF1ca9c9), width: 1)
+                                  : null,
+                            ),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                // Day name
+                                Text(
+                                  ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][date.weekday - 1],
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: isSelected 
+                                        ? Colors.white
+                                        : Colors.grey[600],
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                
+                                // Day number
+                                Text(
+                                  date.day.toString(),
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: isSelected 
+                                        ? Colors.white
+                                        : isToday 
+                                            ? const Color(0xFF1ca9c9)
+                                            : Colors.black,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                
+                                // Month
+                                Text(
+                                  ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                                   'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][date.month - 1],
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: isSelected 
+                                        ? Colors.white.withOpacity(0.8)
+                                        : Colors.grey[500],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
-      body: const Center(
-        child: Text(
-          'Book Screen',
-          style: TextStyle(fontSize: 24),
+      body: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 16),
+            
+            // Course filter section
+            if (_userProfile != null && (_favoriteCourses.isNotEmpty || _recentSearches.isNotEmpty)) ...[
+              // Filter chips outside the card
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                child: Row(
+                  children: [
+                    // Favorites filter chip
+                    InkWell(
+                      onTap: () {
+                        setState(() {
+                          _showFavoritesOnly = true;
+                        });
+                      },
+                      borderRadius: BorderRadius.circular(16),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: _showFavoritesOnly
+                              ? const Color(0xFF1ca9c9)
+                              : Colors.grey[200],
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.favorite,
+                              color: _showFavoritesOnly
+                                  ? Colors.white
+                                  : Colors.grey[600],
+                              size: 16,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Favorites',
+                              style: TextStyle(
+                                color: _showFavoritesOnly
+                                    ? Colors.white
+                                    : Colors.grey[700],
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    
+                    const SizedBox(width: 8),
+                    
+                    // Recent searches filter chip
+                    InkWell(
+                      onTap: () {
+                        setState(() {
+                          _showFavoritesOnly = false;
+                        });
+                      },
+                      borderRadius: BorderRadius.circular(16),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: !_showFavoritesOnly
+                              ? const Color(0xFF1ca9c9)
+                              : Colors.grey[200],
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.history,
+                              color: !_showFavoritesOnly
+                                  ? Colors.white
+                                  : Colors.grey[600],
+                              size: 16,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Recent Searches',
+                              style: TextStyle(
+                                color: !_showFavoritesOnly
+                                    ? Colors.white
+                                    : Colors.grey[700],
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    
+                    const Spacer(),
+                    
+                    // Search icon
+                    InkWell(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const GolfCoursesScreen(),
+                          ),
+                        );
+                      },
+                      borderRadius: BorderRadius.circular(20),
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        child: const Icon(
+                          Icons.search,
+                          color: Color(0xFF1ca9c9),
+                          size: 24,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            )], // Close Padding widget properly
+            
+            const SizedBox(height: 16),
+            
+            // Show favorite courses or recent searches as separate cards
+            ...(_showFavoritesOnly 
+                ? (_favoriteCourses.isNotEmpty ? _favoriteCourses : <GolfCourse>[])
+                : (_recentSearches.isNotEmpty ? _recentSearches : <GolfCourse>[])
+            ).map((course) {
+                  return Column(
+                    children: [
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(16),
+                        decoration: const BoxDecoration(
+                          color: Colors.white,
+                        ),
+                        child: Row(
+                          children: [
+                            // Course logo
+                            Container(
+                              width: 50,
+                              height: 50,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF1ca9c9).withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: course.logo != null && course.logo!.isNotEmpty
+                                  ? ClipRRect(
+                                      borderRadius: BorderRadius.circular(8),
+                                      child: course.logo!.startsWith('http')
+                                          ? Image.network(
+                                              course.logo!,
+                                              width: 50,
+                                              height: 50,
+                                              fit: BoxFit.cover,
+                                              errorBuilder: (context, error, stackTrace) {
+                                                return const Icon(
+                                                  Icons.golf_course,
+                                                  color: Color(0xFF1ca9c9),
+                                                  size: 24,
+                                                );
+                                              },
+                                              loadingBuilder: (context, child, loadingProgress) {
+                                                if (loadingProgress == null) return child;
+                                                return const Center(
+                                                  child: CircularProgressIndicator(
+                                                    color: Color(0xFF1ca9c9),
+                                                    strokeWidth: 2,
+                                                  ),
+                                                );
+                                              },
+                                            )
+                                          : Image.asset(
+                                              course.logo!,
+                                              width: 50,
+                                              height: 50,
+                                              fit: BoxFit.cover,
+                                              errorBuilder: (context, error, stackTrace) {
+                                                return const Icon(
+                                                  Icons.golf_course,
+                                                  color: Color(0xFF1ca9c9),
+                                                  size: 24,
+                                                );
+                                              },
+                                            ),
+                                    )
+                                  : const Icon(
+                                      Icons.golf_course,
+                                      color: Color(0xFF1ca9c9),
+                                      size: 24,
+                                    ),
+                            ),
+                            
+                            const SizedBox(width: 16),
+                            
+                            // Course info
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    course.name,
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  if (course.city != null) ...[
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      course.city!,
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        color: Colors.grey[600],
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                            
+                            // Favorite indicator
+                            const Icon(
+                              Icons.favorite,
+                              color: Color(0xFF1ca9c9),
+                              size: 20,
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                  );
+                }),
+          ],
         ),
       ),
     );
